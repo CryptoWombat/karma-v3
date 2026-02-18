@@ -1,0 +1,79 @@
+---
+description: UI tasks — visual verification FIRST; NEVER analyze code before verifying in browser
+alwaysApply: true
+---
+
+# Verification and Visual Check Rule
+
+**Every agent must follow this rule. No exceptions.**
+
+---
+
+## 1. HARD GATE — No Code Analysis Before Visual Check
+
+**When the task involves UI** (bug fix, feature, dashboard, form, table, selector, etc.):
+
+**DO NOT as your first action:**
+- Read source files
+- Grep or search the codebase
+- Trace API endpoints or validation logic
+- Write or edit code
+- Write tests
+
+**Your FIRST action MUST be:** Start the app, open the browser, and interact with the screen.
+
+---
+
+## 2. Mandatory Visual Verification Procedure
+
+1. **Start the app** (e.g. `python -m uvicorn app.main:app --port 8000` or `.\scripts\start-validator-dashboard.ps1`)
+2. **Open the relevant URL** in a browser (MCP `browser_*` or Playwright)
+3. **Interact with every interactive element** that could be affected:
+   - **Dropdowns / selects:** Select EVERY option (10, 25, 50, 100 etc.) and verify each renders correctly with no errors
+   - **Tabs / toggles:** Click each one and verify content
+   - **Buttons:** Click and verify behaviour
+4. **Note what breaks:** If one option fails while others work, you have found the bug. Do this BEFORE touching code.
+
+**Interactive elements:** Trying every option will often reveal bugs in under a minute. Do this first.
+
+---
+
+## 3. Only After Verification → Code
+
+Only after you have seen the screen and (for interactive elements) tried every option may you:
+- Trace the bug in code
+- Implement a fix
+- Add tests
+
+---
+
+## 4. Completion Checkpoint — Before "Done"
+
+Before marking any UI task complete, you MUST:
+
+1. **Run pytest** (including UI tests) — in the SAME response. See `testing-coverage` rule. No code change without running tests.
+2. **State:** "Visual verification performed: [what you saw]."
+
+If you did not run tests in this turn, the task is not complete.
+
+---
+
+## 5. No Delegation
+
+- You run the app. You open the browser. You verify. **You run the tests.** Never tell the user to run them.
+
+---
+
+## 6. Karma-Specific URLs
+
+- API: `python -m uvicorn app.main:app --port 8000` (or 8001 per scripts)
+- Validator dashboard: `http://127.0.0.1:8000/app/validator.html`
+
+---
+
+## Summary
+
+- **UI task** → FIRST: browser + interact with every option. THEN: code.
+- **Selectors/dropdowns** → Try EVERY option before analyzing code.
+- **Before "done"** → Run pytest + "Visual verification performed: [what I saw]."
+- **NEVER** say "done" without having run tests in the same turn.

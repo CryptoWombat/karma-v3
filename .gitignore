@@ -6,6 +6,16 @@ __pycache__/
 .venv/
 venv/
 
+# Database
+*.db
+*.sqlite
+test_karma.db
+test_visual.db
+mig_test.db
+
+# Local env (keep .env.example)
+.env
+
 # OS
 .DS_Store
 Thumbs.db
@@ -15,3 +25,10 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Test / debug artifacts
+.coverage
+*.png
+*_content.txt
+*_content_dump.txt
+*_report.txt

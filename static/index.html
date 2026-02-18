@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Karma</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0 16px 80px; min-height: 100vh; background: linear-gradient(180deg, #f5e6d3 0%, #e8d4b8 30%, #d4c4a8 70%, #c9b896 100%); color: #37271b; }
+    .app-header { text-align: center; padding: 20px 0 16px; }
+    .logo-dots { display: inline-flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .logo-dots span { display: flex; gap: 6px; justify-content: center; }
+    .logo-dots i { width: 6px; height: 6px; border-radius: 50%; background: #5c4432; display: inline-block; }
+    .app-title { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.15em; color: #37271b; margin: 0 0 4px 0; }
+    .balance-hero { font-size: 2.4rem; font-weight: 700; color: #37271b; margin: 0 0 8px 0; }
+    .balance-secondary { display: flex; justify-content: center; gap: 16px; font-size: 0.9rem; color: #6b5344; }
+    .balance-secondary span { display: flex; align-items: center; gap: 4px; }
+    .balance-secondary .sep { color: #b8a090; }
+    .action-btns { display: flex; gap: 12px; justify-content: center; margin: 16px 0 24px; }
+    .btn-give { background: #4a9b7f !important; color: #fff !important; box-shadow: 0 2px 8px rgba(74,155,127,0.4); }
+    .btn-get { background: #b85c38 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(184,92,56,0.4); }
+    .card { background: #fffef9; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 12px rgba(55,39,27,0.08); border: 1px solid rgba(184,160,144,0.3); }
+    h3 { margin: 0 0 12px 0; font-size: 1rem; font-weight: 600; color: #37271b; }
+    .sub { color: #6b5344; font-size: 0.85rem; margin: 4px 0; }
+    .balance-row { display: flex; justify-content: space-between; margin: 4px 0; font-size: 0.95rem; color: #37271b; }
+    .balance-row .label { color: #6b5344; }
+    button, .btn { padding: 12px 24px; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.95rem; color: #fff; }
+    button:disabled, .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #8b7355; }
+    input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #c9b896; background: #fffef9; color: #37271b; margin: 8px 0; }
+    .recipient-wrap { position: relative; }
+    .autocomplete { position: absolute; top: 100%; left: 0; right: 0; background: #fffef9; border: 1px solid #c9b896; border-radius: 8px; margin-top: 2px; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 12px rgba(55,39,27,0.15); }
+    .autocomplete-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #e8dcc8; display: flex; justify-content: space-between; color: #37271b; }
+    .autocomplete-item:hover { background: #f5e6d3; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item .uid { font-size: 0.8rem; color: #6b5344; }
+    label { display: block; font-size: 0.85rem; color: #6b5344; margin-top: 12px; }
+    .err { color: #b85c38; font-size: 0.9rem; margin-top: 8px; }
+    .ok { color: #4a9b7f; }
+    .hide { display: none !important; }
+    .tx-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e8dcc8; }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-item .tx-dot { width: 8px; height: 8px; border-radius: 50%; background: #4a9b7f; margin-right: 10px; }
+    .tx-item .tx-info { flex: 1; }
+    .tx-item .tx-info .tx-from { font-size: 0.85rem; color: #6b5344; }
+    .tx-item .tx-right { text-align: right; }
+    .tx-item .tx-amount { font-weight: 600; color: #37271b; }
+    .tx-item .tx-date { font-size: 0.75rem; color: #6b5344; }
+    #notInTelegram { text-align: center; padding: 24px; }
+    #notInTelegram a { color: #4a9b7f; }
+    .loader { text-align: center; padding: 32px; color: #6b5344; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-manage { background: #4a9b7f !important; color: #fff !important; width: 100%; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fffef9; border-top: 1px solid #e8dcc8; padding: 10px 0; display: flex; justify-content: space-around; align-items: center; z-index: 50; }
+    .bottom-nav button { background: none; color: #6b5344; padding: 8px 16px; }
+    .bottom-nav button.active { color: #4a9b7f; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="notInTelegram" class="card hide" style="margin:16px;">
+    <h2>Open in Telegram</h2>
+    <p>This app works only inside Telegram. Open the bot and tap the menu / start button.</p>
+  </div>
+
+  <div id="loading" class="card loader" style="margin:16px;">Loading...</div>
+
+  <div id="app" class="hide">
+    <header class="app-header">
+      <div class="logo-dots"><span><i></i><i></i><i></i></span><span><i></i><i></i><i></i></span></div>
+      <h1 class="app-title">KARMA</h1>
+      <div class="balance-hero" id="balance">K 0.00</div>
+      <div class="balance-secondary">
+        <span>SAVINGS K <span id="balanceStaked">0</span></span>
+        <span class="sep">|</span>
+        <span>REWARDS K <span id="balanceRewards">0</span></span>
+      </div>
+      <div class="action-btns">
+        <button class="btn btn-give" onclick="showPanel('give')">Give</button>
+        <button class="btn btn-get" onclick="showPanel('get')">Get</button>
+      </div>
+    </header>
+
+    <div id="panelHome">
+      <div class="card">
+        <h3>Recent Transactions</h3>
+        <div id="txList"></div>
+        <button class="btn secondary" style="margin-top:12px;width:100%;" onclick="loadAllTransactions();showPanel('all')">Show All</button>
+      </div>
+      <button class="btn btn-manage" onclick="showPanel('savings')">Manage Savings</button>
+      <div class="card">
+        <h3>Savings Rewards</h3>
+        <div id="rewardsList"></div>
+      </div>
+    </div>
+
+    <div id="panelGive" class="hide">
+      <button class="btn secondary" style="margin-bottom:12px;" onclick="showPanel('home')">← Back</button>
+      <div class="card">
+        <h3>Give Karma</h3>
+        <label>Recipient (search by @username or ID)</label>
+        <div class="recipient-wrap">
+          <input type="text" id="recipientId" placeholder="Type to search @username or ID" autocomplete="off">
+          <div id="recipientDropdown" class="autocomplete hide"></div>
+        </div>
+        <label>Amount</label>
+        <input type="number" id="amount" placeholder="10" min="0.001" step="0.001">
+        <label>Note (optional, max 30 chars)</label>
+        <input type="text" id="sendNote" placeholder="e.g. thanks!" maxlength="30">
+        <button id="sendBtn" class="btn-give" onclick="sendKarma()">Send</button>
+        <p id="sendResult" class="err hide"></p>
+      </div>
+    </div>
+
+    <div id="panelGet" class="hide">
+      <button class="btn secondary" style="margin-bottom:12px;" onclick="showPanel('home')">← Back</button>
+      <div class="card">
+        <h3>Swap Karma ↔ Chiliz</h3>
+        <label>Direction</label>
+        <select id="swapDirection">
+          <option value="karma_to_chiliz">Karma → Chiliz</option>
+          <option value="chiliz_to_karma">Chiliz → Karma</option>
+        </select>
+        <label>Amount</label>
+        <input type="number" id="swapAmount" placeholder="0" min="0.001" step="0.001">
+        <button id="swapBtn" class="btn-get" onclick="swap()">Swap</button>
+        <p id="swapResult" class="err hide"></p>
+      </div>
+      <div class="card">
+        <h3>Referrals</h3>
+        <p class="sub">Get 1 Karma when someone you invited joins. +3 Karma when they first send to you.</p>
+        <label>New user you invited</label>
+        <div class="recipient-wrap">
+          <input type="text" id="referralNewUserId" placeholder="Search or enter ID" autocomplete="off">
+          <div id="referralDropdown" class="autocomplete hide"></div>
+        </div>
+        <button id="referralBtn" class="btn-get" onclick="recordReferral()">Record referral</button>
+        <p id="referralResult" class="err hide"></p>
+        <p id="referralStatus" class="sub" style="margin-top:8px;"></p>
+      </div>
+    </div>
+
+    <div id="panelSavings" class="hide">
+      <button class="btn secondary" style="margin-bottom:12px;" onclick="showPanel('home')">← Back</button>
+      <div class="card">
+        <h3>Stake / Unstake</h3>
+        <p class="sub">Lock Karma to earn rewards. Unstake anytime.</p>
+        <label>Amount</label>
+        <input type="number" id="stakeAmount" placeholder="0" min="0.001" step="0.001">
+        <div class="btn-group">
+          <button id="stakeBtn" class="btn-give" onclick="stake()">Stake</button>
+          <button id="unstakeBtn" class="secondary" onclick="unstake()">Unstake</button>
+        </div>
+        <p id="stakeResult" class="err hide"></p>
+      </div>
+    </div>
+
+    <div id="panelAll" class="hide">
+      <button class="btn secondary" style="margin-bottom:12px;" onclick="showPanel('home')">← Back</button>
+      <div class="card">
+        <h3>All Transactions</h3>
+        <div id="txListAll"></div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav">
+      <button onclick="showPanel('home')" id="navHome" class="active">Home</button>
+      <button onclick="refresh()">Refresh</button>
+    </nav>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    const API = tg ? '' : (new URLSearchParams(location.search).get('api') || 'http://localhost:8000');
+
+    function apiUrl(path) {
+      const base = API || (location.origin);
+      return base.replace(/\/$/, '') + path;
+    }
+
+    function authHeaders() {
+      return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+    }
+
+    let token = null;
+    let userId = null;
+    let username = '';
+    let balanceData = null;
+
+    if (!tg) {
+      document.getElementById('notInTelegram').classList.remove('hide');
+      document.getElementById('loading').classList.add('hide');
+    } else {
+      tg.ready();
+      tg.expand();
+      authAndLoad();
+    }
+
+    async function authAndLoad() {
+      const initData = tg.initData;
+      if (!initData) {
+        showErr('No initData – open via bot menu');
+        document.getElementById('loading').classList.add('hide');
+        return;
+      }
+
+      try {
+        const r = await fetch(apiUrl('/v1/auth/telegram'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ init_data: initData })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail || j.message || 'Auth failed');
+        token = j.access_token;
+        userId = j.user_id;
+        username = j.username || tg.initDataUnsafe?.user?.username || 'user';
+
+        await register();
+        await refresh();
+        await refreshReferralStatus();
+        await loadTransactions(5);
+        await loadRewards();
+        document.getElementById('loading').classList.add('hide');
+        document.getElementById('app').classList.remove('hide');
+        setupRecipientSearch();
+        setupReferralSearch();
+      } catch (e) {
+        document.getElementById('loading').innerHTML = '<span class="err">' + e.message + '</span>';
+      }
+    }
+
+    async function register() {
+      const r = await fetch(apiUrl('/v1/users/register'), {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ user_id: userId, username: username })
+      });
+      if (!r.ok && r.status !== 400) {
+        const j = await r.json();
+        throw new Error(j.detail || 'Register failed');
+      }
+    }
+
+    async function refresh() {
+      if (!token || !userId) return;
+      try {
+        const r = await fetch(apiUrl('/v1/users/balance/' + userId), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        if (r.ok) {
+          balanceData = j;
+          const bal = document.getElementById('balance');
+          const staked = document.getElementById('balanceStaked');
+          const rewards = document.getElementById('balanceRewards');
+          if (bal) bal.textContent = 'K ' + (j.balance ?? 0).toFixed(2);
+          if (staked) staked.textContent = (j.staked ?? 0).toFixed(2);
+          if (rewards) rewards.textContent = (j.rewards ?? 0).toFixed(2);
+          loadTransactions(5);
+          loadRewards();
+        }
+      } catch (e) {
+        const bal = document.getElementById('balance');
+        if (bal) bal.textContent = 'Error';
+      }
+    }
+
+    async function refreshReferralStatus() {
+      if (!token || !userId) return;
+      try {
+        const r = await fetch(apiUrl('/v1/referrals/status/' + userId), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        const el = document.getElementById('referralStatus');
+        if (el) {
+          if (j.invited_by) {
+            el.textContent = 'You were invited by user ' + j.invited_by + (j.rewarded ? ' (bonus claimed).' : '.');
+          } else {
+            el.textContent = 'You were not referred by anyone.';
+          }
+        }
+      } catch (e) {
+        const el = document.getElementById('referralStatus');
+        if (el) el.textContent = '';
+      }
+    }
+
+    let searchTimeout = null;
+    function onRecipientInput() {
+      clearTimeout(searchTimeout);
+      const q = document.getElementById('recipientId').value.trim();
+      const dd = document.getElementById('recipientDropdown');
+      if (q.length < 2) {
+        dd.classList.add('hide');
+        dd.innerHTML = '';
+        return;
+      }
+      searchTimeout = setTimeout(() => searchRecipients(q, 'recipientDropdown', 'recipientId'), 200);
+    }
+    async function searchRecipients(q, dropdownId, inputId) {
+      if (!token) return;
+      const dd = document.getElementById(dropdownId);
+      try {
+        const r = await fetch(apiUrl('/v1/users/search?q=' + encodeURIComponent(q)), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        const users = j.users || [];
+        if (users.length === 0) {
+          dd.innerHTML = '<div class="autocomplete-item" style="cursor:default;">No users found</div>';
+          dd.classList.remove('hide');
+          return;
+        }
+        dd.innerHTML = users.map(u => {
+          const uname = (u.username || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+          return '<div class="autocomplete-item" data-uid="' + u.user_id + '">@' + (uname || '—') + ' <span class="uid">' + u.user_id + '</span></div>';
+        }).join('');
+        dd.classList.remove('hide');
+        dd.querySelectorAll('.autocomplete-item').forEach(el => {
+          el.addEventListener('click', () => {
+            document.getElementById(inputId).value = el.dataset.uid;
+            dd.classList.add('hide');
+            dd.innerHTML = '';
+          });
+        });
+      } catch (e) {
+        dd.innerHTML = '<div class="autocomplete-item" style="cursor:default;">Search failed</div>';
+        dd.classList.remove('hide');
+      }
+    }
+    function setupRecipientSearch() {
+      const inp = document.getElementById('recipientId');
+      const dd = document.getElementById('recipientDropdown');
+      inp.addEventListener('input', onRecipientInput);
+      inp.addEventListener('focus', () => { if (inp.value.trim().length >= 2) searchRecipients(inp.value.trim(), 'recipientDropdown', 'recipientId'); });
+      document.addEventListener('click', (e) => {
+        if (!inp.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hide');
+      });
+    }
+
+    let referralSearchTimeout = null;
+    function setupReferralSearch() {
+      const inp = document.getElementById('referralNewUserId');
+      const dd = document.getElementById('referralDropdown');
+      inp.addEventListener('input', () => {
+        clearTimeout(referralSearchTimeout);
+        const q = inp.value.trim();
+        if (q.length < 2) { dd.classList.add('hide'); dd.innerHTML = ''; return; }
+        referralSearchTimeout = setTimeout(() => searchRecipients(q, 'referralDropdown', 'referralNewUserId'), 200);
+      });
+      inp.addEventListener('focus', () => { if (inp.value.trim().length >= 2) searchRecipients(inp.value.trim(), 'referralDropdown', 'referralNewUserId'); });
+      document.addEventListener('click', (e) => {
+        if (!inp.contains(e.target) && !dd.contains(e.target)) dd.classList.add('hide');
+      });
+    }
+
+    function showResult(elId, msg, isErr) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.remove('hide', 'err', 'ok');
+      el.classList.add(isErr ? 'err' : 'ok');
+    }
+
+    async function sendKarma() {
+      const to = document.getElementById('recipientId').value.trim();
+      const amt = parseFloat(document.getElementById('amount').value);
+      const note = document.getElementById('sendNote')?.value?.trim() || null;
+      const el = document.getElementById('sendResult');
+      el.classList.add('hide');
+      if (!to || !amt || amt < 0.001) {
+        showResult('sendResult', 'Enter valid recipient and amount (min 0.001)', true);
+        return;
+      }
+      document.getElementById('sendBtn').disabled = true;
+      const body = { sender_id: userId, recipient_id: to, amount: amt };
+      if (note && note.length <= 30) body.note = note;
+      try {
+        const r = await fetch(apiUrl('/v1/wallets/send'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if (r.ok) {
+          showResult('sendResult', 'Sent!', false);
+          await refresh();
+          await loadTransactions(5);
+        } else {
+          showResult('sendResult', j.detail || 'Send failed', true);
+        }
+      } catch (e) {
+        showResult('sendResult', e.message || 'Error', true);
+      }
+      document.getElementById('sendBtn').disabled = false;
+    }
+
+    async function stake() {
+      const amt = parseFloat(document.getElementById('stakeAmount').value);
+      const el = document.getElementById('stakeResult');
+      el.classList.add('hide');
+      if (!amt || amt < 0.001) {
+        showResult('stakeResult', 'Enter amount (min 0.001)', true);
+        return;
+      }
+      document.getElementById('stakeBtn').disabled = true;
+      try {
+        const r = await fetch(apiUrl('/v1/stake'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ user_id: userId, amount: amt })
+        });
+        const j = await r.json();
+        if (r.ok) {
+          showResult('stakeResult', j.message || 'Staked!', false);
+          document.getElementById('stakeAmount').value = '';
+          await refresh();
+          await loadTransactions(5);
+        } else {
+          showResult('stakeResult', j.detail || 'Stake failed', true);
+        }
+      } catch (e) {
+        showResult('stakeResult', e.message || 'Error', true);
+      }
+      document.getElementById('stakeBtn').disabled = false;
+    }
+
+    async function unstake() {
+      const amt = parseFloat(document.getElementById('stakeAmount').value);
+      const el = document.getElementById('stakeResult');
+      el.classList.add('hide');
+      if (!amt || amt < 0.001) {
+        showResult('stakeResult', 'Enter amount to unstake (min 0.001)', true);
+        return;
+      }
+      document.getElementById('unstakeBtn').disabled = true;
+      try {
+        const r = await fetch(apiUrl('/v1/unstake'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ user_id: userId, amount: amt })
+        });
+        const j = await r.json();
+        if (r.ok) {
+          showResult('stakeResult', j.message || 'Unstaked!', false);
+          document.getElementById('stakeAmount').value = '';
+          await refresh();
+          await loadTransactions(5);
+        } else {
+          showResult('stakeResult', j.detail || 'Unstake failed', true);
+        }
+      } catch (e) {
+        showResult('stakeResult', e.message || 'Error', true);
+      }
+      document.getElementById('unstakeBtn').disabled = false;
+    }
+
+    async function swap() {
+      const dir = document.getElementById('swapDirection').value;
+      const amt = parseFloat(document.getElementById('swapAmount').value);
+      const el = document.getElementById('swapResult');
+      el.classList.add('hide');
+      if (!amt || amt < 0.001) {
+        showResult('swapResult', 'Enter amount (min 0.001)', true);
+        return;
+      }
+      document.getElementById('swapBtn').disabled = true;
+      try {
+        const r = await fetch(apiUrl('/v1/wallets/swap'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ user_id: userId, direction: dir, amount: amt })
+        });
+        const j = await r.json();
+        if (r.ok) {
+          showResult('swapResult', j.message || 'Swapped!', false);
+          document.getElementById('swapAmount').value = '';
+          await refresh();
+          await loadTransactions(5);
+        } else {
+          showResult('swapResult', j.detail || 'Swap failed', true);
+        }
+      } catch (e) {
+        showResult('swapResult', e.message || 'Error', true);
+      }
+      document.getElementById('swapBtn').disabled = false;
+    }
+
+    async function recordReferral() {
+      const newUserId = document.getElementById('referralNewUserId').value.trim();
+      const el = document.getElementById('referralResult');
+      el.classList.add('hide');
+      if (!newUserId) {
+        showResult('referralResult', 'Enter the new user ID you invited', true);
+        return;
+      }
+      document.getElementById('referralBtn').disabled = true;
+      try {
+        const r = await fetch(apiUrl('/v1/referrals'), {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ inviter_id: userId, new_user_id: newUserId })
+        });
+        const j = await r.json();
+        if (r.ok) {
+          showResult('referralResult', j.message || 'Referral recorded! +1 Karma', false);
+          document.getElementById('referralNewUserId').value = '';
+          await refresh();
+          await refreshReferralStatus();
+          await loadTransactions(5);
+        } else {
+          showResult('referralResult', j.detail || 'Referral failed', true);
+        }
+      } catch (e) {
+        showResult('referralResult', e.message || 'Error', true);
+      }
+      document.getElementById('referralBtn').disabled = false;
+    }
+
+    function showErr(msg) {
+      document.getElementById('loading').innerHTML = '<span class="err">' + msg + '</span>';
+    }
+
+    function showPanel(name) {
+      const panels = { home: 'panelHome', give: 'panelGive', get: 'panelGet', savings: 'panelSavings', all: 'panelAll' };
+      Object.entries(panels).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hide', name !== k);
+      });
+      const navHome = document.getElementById('navHome');
+      if (navHome) navHome.classList.toggle('active', name === 'home');
+    }
+
+    async function loadTransactions(limit) {
+      if (!token || !userId) return;
+      try {
+        const r = await fetch(apiUrl('/v1/transactions?user_id=' + userId + '&limit=' + (limit || 10)), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        const txs = j.transactions || [];
+        const container = document.getElementById('txList');
+        if (!container) return;
+        container.innerHTML = renderTxList(txs.slice(0, limit || 10)) || '<div class="sub">No transactions yet</div>';
+      } catch (e) { if (document.getElementById('txList')) document.getElementById('txList').innerHTML = '<div class="sub">Could not load</div>'; }
+    }
+    async function loadAllTransactions() {
+      if (!token || !userId) return;
+      try {
+        const r = await fetch(apiUrl('/v1/transactions?user_id=' + userId + '&limit=50'), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        const txs = j.transactions || [];
+        const container = document.getElementById('txListAll');
+        if (!container) return;
+        container.innerHTML = renderTxList(txs) || '<div class="sub">No transactions yet</div>';
+      } catch (e) { if (document.getElementById('txListAll')) document.getElementById('txListAll').innerHTML = '<div class="sub">Could not load</div>'; }
+    }
+    function renderTxList(txs) {
+      return txs.map(tx => {
+        const amt = Math.abs(tx.amount_karma || 0);
+        let action = 'Received', sign = '+';
+        if (tx.type === 'send' && String(tx.from_user_id) === String(userId)) { action = 'Sent'; sign = '-'; }
+        else if (tx.type === 'stake_deposit') { action = 'Staked'; sign = '-'; }
+        else if (tx.type === 'unstake_withdraw') { action = 'Unstaked'; sign = '+'; }
+        else if (tx.type === 'swap' && (tx.meta?.direction === 'chiliz_to_karma')) { action = 'Swap'; sign = '+'; }
+        else if (tx.type === 'swap') { action = 'Swap'; sign = '-'; }
+        let desc = tx.type;
+        if (tx.type === 'send') desc = sign === '+' ? 'From: ' + (tx.from_user_id || '—') : 'To: ' + (tx.to_user_id || '—');
+        if (tx.type === 'mint') desc = 'Minted';
+        if (tx.type === 'referral_invite') desc = 'Referral';
+        if (tx.type === 'stake_reward' || tx.type === 'protocol_emission') desc = 'Karma Protocol';
+        const d = tx.created_at ? new Date(tx.created_at) : null;
+        const dateStr = d ? (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getDate().toString().padStart(2,'0') + '/' + d.getFullYear().toString().slice(-2) : '';
+        return '<div class="tx-item"><span class="tx-dot"></span><div class="tx-info"><div>' + action + '</div><div class="tx-from">' + desc + '</div></div><div class="tx-right"><div class="tx-amount">' + sign + ' K ' + amt.toFixed(2) + '</div><div class="tx-date">' + dateStr + '</div></div></div>';
+      }).join('');
+    }
+
+    async function loadRewards() {
+      if (!token || !userId) return;
+      try {
+        const r = await fetch(apiUrl('/v1/transactions?user_id=' + userId + '&limit=10'), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const j = await r.json();
+        const rewards = (j.transactions || []).filter(t => t.type === 'stake_reward' || t.type === 'protocol_emission');
+        const container = document.getElementById('rewardsList');
+        if (!container) return;
+        container.innerHTML = rewards.slice(0, 5).map(tx => {
+          const amt = tx.amount_karma || 0;
+          const d = tx.created_at ? new Date(tx.created_at) : null;
+          const dateStr = d ? (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getDate().toString().padStart(2,'0') + '/' + d.getFullYear().toString().slice(-2) : '';
+          return '<div class="tx-item"><span class="tx-dot"></span><div class="tx-info"><div>Received</div><div class="tx-from">Karma Protocol</div></div><div class="tx-right"><div class="tx-amount">K ' + amt.toFixed(4) + '</div><div class="tx-date">' + dateStr + '</div></div></div>';
+        }).join('') || '<div class="sub">No rewards yet. Stake to earn.</div>';
+      } catch (e) { if (document.getElementById('rewardsList')) document.getElementById('rewardsList').innerHTML = '<div class="sub">Could not load</div>'; }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Karma Validator Dashboard</title>
+  <style>
+    :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --err: #f85149; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px; line-height: 1.5; }
+    h1 { font-size: 1.5rem; margin: 0 0 8px 0; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+    .config { background: var(--card); padding: 16px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--border); }
+    .config label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    .config input { width: 100%; max-width: 400px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-family: monospace; }
+    .config-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+    .config-row > div { flex: 1; min-width: 200px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; margin-top: 24px; grid-auto-flow: dense; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow: hidden; min-height: 120px; display: flex; flex-direction: column; }
+    .card .card-content { overflow-y: auto; flex: 1; min-height: 0; }
+    .card-header-actions { display: flex; align-items: center; gap: 8px; }
+    .card[data-span="1"] { grid-column: span 1; }
+    .card[data-span="2"] { grid-column: span 2; }
+    .card[data-span="3"] { grid-column: span 3; }
+    .card[data-span="4"] { grid-column: span 4; }
+    .card[data-span="6"] { grid-column: span 6; }
+    .card[data-span="12"] { grid-column: 1 / -1; }
+    .card-resize { cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 4px 8px; border-radius: 4px; }
+    .card-resize:hover { color: var(--accent); background: rgba(88, 166, 255, 0.1); }
+    .resize-popover { position: fixed; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 180px; }
+    .resize-popover label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+    .resize-popover select, .resize-popover input { width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 4px; margin-bottom: 8px; font-size: 0.85rem; }
+    .resize-popover .btn { padding: 6px 12px; font-size: 0.85rem; margin-top: 4px; }
+    .card h3 { margin: 0 0 16px 0; font-size: 1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .card-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .card-header-row h3 { margin: 0; border: none; padding: 0; }
+    .card-header-row select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+    .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--muted); }
+    .stat-val { font-weight: 600; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
+    .badge-ok { background: rgba(63, 185, 80, 0.2); color: var(--ok); }
+    .badge-warn { background: rgba(210, 153, 34, 0.2); color: var(--warn); }
+    .badge-err { background: rgba(248, 81, 73, 0.2); color: var(--err); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .loading { color: var(--muted); }
+    .err { color: var(--err); font-size: 0.9rem; }
+    .timestamp { font-size: 0.8rem; color: var(--muted); margin-top: 12px; }
+    .sub-section { margin-top: 16px; }
+    .sub-section h4 { margin: 0 0 8px 0; font-size: 0.9rem; color: var(--muted); }
+    .card h3 { margin: 0; }
+    .card-drag-handle { cursor: grab; user-select: none; color: var(--muted); font-size: 1rem; padding: 4px 8px; border-radius: 4px; }
+    .card-drag-handle:hover { color: var(--accent); background: rgba(88, 166, 255, 0.1); }
+    .card-drag-handle:active { cursor: grabbing; }
+    .sortable-ghost { opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <h1>Karma Validator Dashboard</h1>
+  <p class="sub">Read-only view of platform data. Requires validator API key.</p>
+
+  <div class="config">
+    <div class="config-row">
+      <div>
+        <label>API Base URL</label>
+        <input type="text" id="baseUrl" value="" placeholder="http://localhost:8000">
+      </div>
+      <div>
+        <label>Validator API Key</label>
+        <input type="password" id="apiKey" value="validator-key-1" placeholder="validator-key-1">
+      </div>
+    </div>
+    <div style="margin-top: 16px;">
+      <button class="btn btn-primary" onclick="loadAll()">Load All</button>
+      <button class="btn btn-secondary" onclick="loadHealth()">Health</button>
+      <button class="btn btn-secondary" onclick="loadSnapshot()">Snapshot</button>
+      <button class="btn btn-secondary" onclick="loadInflation()">Inflation</button>
+      <button class="btn btn-secondary" onclick="loadLeaderboard()">Top Holders</button>
+      <button class="btn btn-secondary" onclick="loadTransactions()">Transactions</button>
+    </div>
+  </div>
+
+  <div class="grid" id="dashboardGrid">
+    <div id="leaderboard" class="card" data-span="12">
+      <div class="card-header-row">
+        <h3>Top Holders</h3>
+        <span class="card-header-actions">
+          <span class="card-drag-handle" title="Drag to reorder">✋</span>
+          <span class="card-resize" data-card="leaderboard" title="Resize">⊞</span>
+          <select id="topHoldersLimit" onchange="loadLeaderboard()">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </span>
+      </div>
+      <div class="card-content loading">—</div>
+    </div>
+    <div id="health" class="card" data-span="4">
+      <div class="card-header-row"><h3>Health</h3><span class="card-header-actions"><span class="card-drag-handle" title="Drag to reorder">✋</span><span class="card-resize" data-card="health" title="Resize">⊞</span></span></div>
+      <div class="card-content loading">Click Load All or Health</div>
+    </div>
+    <div id="snapshot" class="card" data-span="12">
+      <div class="card-header-row"><h3>Snapshot</h3><span class="card-header-actions"><span class="card-drag-handle" title="Drag to reorder">✋</span><span class="card-resize" data-card="snapshot" title="Resize">⊞</span></span></div>
+      <div class="card-content loading">—</div>
+    </div>
+    <div id="inflation" class="card" data-span="4">
+      <div class="card-header-row"><h3>Inflation</h3><span class="card-header-actions"><span class="card-drag-handle" title="Drag to reorder">✋</span><span class="card-resize" data-card="inflation" title="Resize">⊞</span></span></div>
+      <div class="card-content loading">—</div>
+    </div>
+    <div id="transactions" class="card" data-span="4">
+      <div class="card-header-row"><h3>Transactions</h3><span class="card-header-actions"><span class="card-drag-handle" title="Drag to reorder">✋</span><span class="card-resize" data-card="transactions" title="Resize">⊞</span></span></div>
+      <div class="card-content loading">—</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script>
+    function base() {
+      let v = document.getElementById('baseUrl').value.trim();
+      if (!v) v = location.origin;
+      return v.replace(/\/$/, '');
+    }
+    function apiKey() { return document.getElementById('apiKey').value.trim(); }
+    function headers() {
+      const k = apiKey();
+      const h = { 'Content-Type': 'application/json' };
+      if (k) h['Authorization'] = 'Bearer ' + k;
+      return h;
+    }
+    function fmtNum(n) { return typeof n === 'number' ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(n); }
+    function fmtDate(s) { if (!s) return '—'; return new Date(s).toLocaleString(); }
+    function escapeHtml(s) {
+      if (s == null || s === undefined) return '';
+      const t = String(s);
+      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function setContent(id, html) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const content = el.querySelector('.card-content');
+      if (!content) return;
+      content.outerHTML = '<div class="card-content">' + html + '</div>';
+    }
+
+    function renderHealth(j) {
+      const dbOk = j.database === 'ok';
+      return `
+        <div class="stat-row">
+          <span class="stat-label">Status</span>
+          <span class="badge badge-ok">${j.status}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Database</span>
+          <span class="badge ${dbOk ? 'badge-ok' : 'badge-err'}">${j.database}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Last block</span>
+          <span class="stat-val">${fmtDate(j.last_protocol_block_at) || '—'}</span>
+        </div>
+        <div class="timestamp">${fmtDate(j.timestamp)}</div>
+      `;
+    }
+
+    function renderSnapshot(j) {
+      const u = j.users || {};
+      const b = j.balances || {};
+      const tx = j.transactions || {};
+      const inf = j.inflation || {};
+      const top = j.top_wallets || [];
+      let html = `
+        <div class="sub-section">
+          <h4>Users</h4>
+          <div class="stat-row"><span class="stat-label">Total users</span><span class="stat-val">${fmtNum(u.user_count ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Wallets with balance</span><span class="stat-val">${fmtNum(u.wallet_count ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Active (24h)</span><span class="stat-val">${fmtNum(u.active_wallets_24h ?? 0)}</span></div>
+        </div>
+        <div class="sub-section">
+          <h4>Balances</h4>
+          <div class="stat-row"><span class="stat-label">Total Karma</span><span class="stat-val">${fmtNum(b.total_karma_balance ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Total Chiliz</span><span class="stat-val">${fmtNum(b.total_chiliz_balance ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Total staked</span><span class="stat-val">${fmtNum(b.total_staked ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Total rewards earned</span><span class="stat-val">${fmtNum(b.total_rewards_earned ?? 0)}</span></div>
+        </div>
+        <div class="sub-section">
+          <h4>Transactions (24h / 7d / 30d)</h4>
+          <div class="stat-row"><span class="stat-label">Count</span><span class="stat-val">${fmtNum(tx['24h']?.count ?? 0)} / ${fmtNum(tx['7d']?.count ?? 0)} / ${fmtNum(tx['30d']?.count ?? 0)}</span></div>
+          <div class="stat-row"><span class="stat-label">Volume (Karma)</span><span class="stat-val">${fmtNum(tx['24h']?.volume_karma ?? 0)} / ${fmtNum(tx['7d']?.volume_karma ?? 0)} / ${fmtNum(tx['30d']?.volume_karma ?? 0)}</span></div>
+        </div>
+        <div class="sub-section">
+          <h4>Inflation (Karma minted)</h4>
+          <div class="stat-row"><span class="stat-label">1h / 24h / 7d / 30d</span><span class="stat-val">${fmtNum(inf['1h']?.karma_minted ?? 0)} / ${fmtNum(inf['24h']?.karma_minted ?? 0)} / ${fmtNum(inf['7d']?.karma_minted ?? 0)} / ${fmtNum(inf['30d']?.karma_minted ?? 0)}</span></div>
+        </div>
+      `;
+      if (top.length > 0) {
+        html += `<div class="sub-section"><h4>Top ${top.length} Wallets</h4><div class="table-wrap"><table><thead><tr><th>#</th><th>User</th><th class="num">Balance</th><th class="num">Staked</th><th class="num">Total</th></tr></thead><tbody>`;
+        top.forEach(w => {
+          html += `<tr><td>${w.rank}</td><td>${escapeHtml(w.username || w.user_id)}</td><td class="num">${fmtNum(w.karma_balance)}</td><td class="num">${fmtNum(w.staked)}</td><td class="num">${fmtNum(w.total)}</td></tr>`;
+        });
+        html += '</tbody></table></div></div>';
+      }
+      html += `<div class="timestamp">${fmtDate(j.snapshot_at)}</div>`;
+      return html;
+    }
+
+    function renderInflation(j) {
+      const inf = j.inflation || {};
+      const wins = ['1h', '24h', '7d', '30d'];
+      let html = '<div class="table-wrap"><table><thead><tr><th>Window</th><th class="num">Minted</th><th class="num">Admin</th><th class="num">Protocol</th><th class="num">Stake</th><th class="num" style="min-width:4.5rem">Referral</th></tr></thead><tbody>';
+      wins.forEach(w => {
+        const d = inf[w] || {};
+        const b = d.breakdown || {};
+        html += `<tr><td>${w}</td><td class="num">${fmtNum(d.karma_minted ?? 0)}</td><td class="num">${fmtNum(b.mint_admin ?? 0)}</td><td class="num">${fmtNum(b.protocol_emission ?? 0)}</td><td class="num">${fmtNum(b.stake_rewards ?? 0)}</td><td class="num">${fmtNum(b.referral_rewards ?? 0)}</td></tr>`;
+      });
+      html += '</tbody></table></div>';
+      html += `<div class="timestamp">${fmtDate(j.snapshot_at)}</div>`;
+      return html;
+    }
+
+    function renderLeaderboard(j) {
+      const top = Array.isArray(j.top_wallets) ? j.top_wallets : [];
+      if (top.length === 0) return '<p class="stat-label">No wallets yet</p><div class="timestamp">' + fmtDate(j.generated_at || null) + '</div>';
+      let html = '<div class="table-wrap"><table><thead><tr><th>#</th><th>User</th><th class="num">Balance</th><th class="num">Staked</th><th class="num">Total</th></tr></thead><tbody>';
+      top.forEach(w => {
+        if (w && typeof w === 'object') {
+          html += `<tr><td>${escapeHtml(String(w.rank ?? ''))}</td><td>${escapeHtml(w.username || w.user_id || '')}</td><td class="num">${fmtNum(w.karma_balance)}</td><td class="num">${fmtNum(w.staked)}</td><td class="num">${fmtNum(w.total)}</td></tr>`;
+        }
+      });
+      html += '</tbody></table></div><div class="timestamp">' + fmtDate(j.generated_at || null) + '</div>';
+      return html;
+    }
+
+    function renderTransactions(j) {
+      const tx = j.transactions || {};
+      let html = '<div class="table-wrap"><table><thead><tr><th>Window</th><th class="num">Count</th><th class="num">Volume (Karma)</th><th class="num">Volume (Chiliz)</th></tr></thead><tbody>';
+      ['24h', '7d', '30d'].forEach(w => {
+        const d = tx[w] || {};
+        html += `<tr><td>${w}</td><td class="num">${fmtNum(d.count ?? 0)}</td><td class="num">${fmtNum(d.volume_karma ?? 0)}</td><td class="num">${fmtNum(d.volume_chiliz ?? 0)}</td></tr>`;
+      });
+      html += '</tbody></table></div><div class="timestamp">' + fmtDate(j.snapshot_at) + '</div>';
+      return html;
+    }
+
+    const renderers = {
+      health: renderHealth,
+      snapshot: renderSnapshot,
+      inflation: renderInflation,
+      leaderboard: renderLeaderboard,
+      transactions: renderTransactions,
+    };
+
+    async function fetchSection(id, path) {
+      const card = document.getElementById(id);
+      const content = card?.querySelector('.card-content');
+      if (!content) return;
+      content.innerHTML = '<span class="loading">Loading…</span>';
+      try {
+        const r = await fetch(base() + path, { headers: headers() });
+        const j = await r.json();
+        if (!r.ok) {
+          const msg = (typeof j.detail === 'object' ? j.detail?.error : j.detail) || r.status;
+          setContent(id, '<div class="err">' + escapeHtml(String(msg || 'Error')) + '</div>');
+          return;
+        }
+        const render = renderers[id];
+        setContent(id, render ? render(j) : '<pre>' + JSON.stringify(j, null, 2) + '</pre>');
+      } catch (e) {
+        setContent(id, '<div class="err">' + escapeHtml(e.message || 'Failed to fetch') + '</div>');
+      }
+    }
+
+    let leaderboardAbort = null;
+    async function loadHealth() { await fetchSection('health', '/v1/validator/health'); }
+    async function loadSnapshot() { await fetchSection('snapshot', '/v1/validator/snapshot?include_top=10'); }
+    async function loadInflation() { await fetchSection('inflation', '/v1/validator/inflation'); }
+    async function loadLeaderboard() {
+      if (leaderboardAbort) leaderboardAbort.abort();
+      leaderboardAbort = new AbortController();
+      let limit = document.getElementById('topHoldersLimit')?.value || '10';
+      if (!['10','25','50','100'].includes(limit)) {
+        const sel = document.getElementById('topHoldersLimit');
+        if (sel) sel.value = '10';
+        limit = '10';
+      }
+      try {
+        const card = document.getElementById('leaderboard');
+        const content = card?.querySelector('.card-content');
+        if (content) content.innerHTML = '<span class="loading">Loading…</span>';
+        const r = await fetch(base() + '/v1/validator/leaderboard?limit=' + limit + '&sort_by=total', {
+          headers: headers(),
+          signal: leaderboardAbort.signal
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          let msg = (typeof j.detail === 'object' ? j.detail?.error : j.detail) || ('Error ' + r.status);
+          if (Array.isArray(j.detail) && j.detail.length > 0) {
+            msg = j.detail.map(d => d.msg || (d.loc ? d.loc.join('.') + ': ' + (d.type || '') : '')).filter(Boolean).join('; ') || msg;
+          }
+          setContent('leaderboard', '<div class="err">' + escapeHtml(String(msg)) + '</div>');
+          return;
+        }
+        try {
+          const html = renderLeaderboard(j);
+          setContent('leaderboard', html);
+        } catch (e) {
+          setContent('leaderboard', '<div class="err">' + escapeHtml('Invalid response format') + '</div>');
+          return;
+        }
+        try { localStorage.setItem('karma-validator-top-holders-limit', limit); } catch (_) {}
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+        setContent('leaderboard', '<div class="err">' + escapeHtml(e.message || 'Failed to fetch') + '</div>');
+      } finally {
+        leaderboardAbort = null;
+      }
+    }
+    async function loadTransactions() { await fetchSection('transactions', '/v1/validator/transactions'); }
+
+    async function loadAll() {
+      await Promise.all([loadHealth(), loadSnapshot(), loadInflation(), loadLeaderboard(), loadTransactions()]);
+    }
+
+    document.getElementById('baseUrl').value = location.origin;
+
+    const CARD_IDS = ['health', 'snapshot', 'inflation', 'leaderboard', 'transactions'];
+    const ORDER_KEY = 'karma-validator-dashboard-order';
+    const SIZES_KEY = 'karma-validator-card-sizes';
+    const SPAN_OPTS = [1, 2, 3, 4, 6, 12];
+    const HEIGHT_OPTS = ['auto', '200', '250', '300', '400', '500', '600'];
+
+    function getCardSizes() {
+      try {
+        const s = localStorage.getItem(SIZES_KEY);
+        return s ? JSON.parse(s) : {};
+      } catch (_) { return {}; }
+    }
+    function setCardSize(id, span, height) {
+      const sizes = getCardSizes();
+      sizes[id] = { span, height };
+      try { localStorage.setItem(SIZES_KEY, JSON.stringify(sizes)); } catch (_) {}
+    }
+    function applyCardSize(id, span, height) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.setAttribute('data-span', String(span));
+      if (height && height !== 'auto') {
+        el.style.minHeight = height + 'px';
+      } else {
+        el.style.minHeight = '';
+      }
+    }
+    function showResizePopover(btn, cardId) {
+      const existing = document.getElementById('resize-popover');
+      if (existing) existing.remove();
+      const rect = btn.getBoundingClientRect();
+      const sizes = getCardSizes();
+      const cur = sizes[cardId] || {};
+      const el = document.getElementById(cardId);
+      const curSpan = parseInt(el.getAttribute('data-span') || '12', 10);
+      const curHeightVal = el.style.minHeight ? el.style.minHeight.replace('px', '') : 'auto';
+
+      const pop = document.createElement('div');
+      pop.id = 'resize-popover';
+      pop.className = 'resize-popover';
+      pop.innerHTML = `
+        <label>Width (columns)</label>
+        <select id="resize-span">
+          ${SPAN_OPTS.map(s => `<option value="${s}" ${s === (cur.span ?? curSpan) ? 'selected' : ''}>${s === 12 ? 'Full' : s + ' cols'}</option>`).join('')}
+        </select>
+        <label>Height (px)</label>
+        <select id="resize-height">
+          <option value="auto" ${(!curHeightVal || curHeightVal === 'auto') ? 'selected' : ''}>Auto</option>
+          ${HEIGHT_OPTS.filter(h => h !== 'auto').map(h => `<option value="${h}" ${h === (cur.height ?? curHeightVal) ? 'selected' : ''}>${h}px</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" id="resize-apply">Apply</button>
+      `;
+      pop.style.left = rect.left + 'px';
+      pop.style.top = (rect.bottom + 8) + 'px';
+      document.body.appendChild(pop);
+
+      const close = () => pop.remove();
+      document.getElementById('resize-apply').onclick = () => {
+        const span = parseInt(document.getElementById('resize-span').value, 10);
+        const height = document.getElementById('resize-height').value;
+        applyCardSize(cardId, span, height);
+        setCardSize(cardId, span, height);
+        close();
+      };
+      const clickOutside = (e) => {
+        if (!pop.contains(e.target) && !btn.contains(e.target)) { close(); document.removeEventListener('click', clickOutside); }
+      };
+      setTimeout(() => document.addEventListener('click', clickOutside), 0);
+    }
+    function restoreSizes() {
+      const sizes = getCardSizes();
+      CARD_IDS.forEach(id => {
+        const s = sizes[id];
+        if (s) applyCardSize(id, s.span, s.height);
+      });
+    }
+
+    function restoreOrder() {
+      const saved = localStorage.getItem(ORDER_KEY);
+      if (!saved) return;
+      try {
+        const order = JSON.parse(saved);
+        if (!Array.isArray(order) || order.length === 0) return;
+        const grid = document.getElementById('dashboardGrid');
+        order.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) grid.appendChild(el);
+        });
+      } catch (_) {}
+    }
+
+    function saveOrder() {
+      const grid = document.getElementById('dashboardGrid');
+      const order = [...grid.children].map(el => el.id).filter(Boolean);
+      if (order.length) localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+    }
+
+    restoreOrder();
+    restoreSizes();
+
+    document.querySelectorAll('.card-resize').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); showResizePopover(btn, btn.getAttribute('data-card')); });
+    });
+
+    try {
+      const saved = localStorage.getItem('karma-validator-top-holders-limit');
+      const sel = document.getElementById('topHoldersLimit');
+      if (sel && saved && ['10','25','50','100'].includes(saved)) sel.value = saved;
+    } catch (_) {}
+    // Defer to next tick so restored select value is committed before loadLeaderboard reads it
+    Promise.resolve().then(loadAll);
+
+    new Sortable(document.getElementById('dashboardGrid'), {
+      animation: 150,
+      handle: '.card-drag-handle',
+      ghostClass: 'sortable-ghost',
+      onEnd: saveOrder
+    });
+  </script>
+</body>
+</html>

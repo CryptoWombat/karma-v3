@@ -1,0 +1,173 @@
+---
+description: Enforce test coverage for every feature - pytest API tests, E2E flows, and Playwright visual tests
+alwaysApply: true
+---
+
+# Testing Coverage Rule
+
+Every feature, fix, or change must have corresponding tests. Both layers should be covered where they apply.
+
+---
+
+## HARD GATE — Run Tests IMMEDIATELY After Every Code Change
+
+**Every code edit = run pytest in the SAME response. Before you say "done". Before you stop.**
+
+- You MUST run tests yourself. Never tell the user to run them.
+- You MUST run them in the same turn as your edits. No "run tests when you're done" — you run them before considering the turn complete.
+- If tests fail: fix and re-run until green. Then report.
+- If you deliver code and do NOT run `pytest` in that same response: you have violated this rule.
+
+**Scope:** After API/validator changes → `pytest tests/test_api_validator.py tests/ui/test_top_holders.py -v`. After broader changes → `pytest tests/ -v`. Adjust as needed, but RUN SOMETHING.
+
+---
+
+## 0. UI TASKS — Visual Verification FIRST
+
+**For UI work:** See `verification-and-visual-check` rule. Your FIRST action must be visual verification (open app, capture/view screen). Do NOT write code or tests until you have seen the screen. Then add/run tests.
+
+---
+
+## 0a. MANDATORY FIRST STEP (do not skip)
+
+**Before writing any implementation code**, when given a feature/fix/change task:
+
+1. **Output explicitly:** "Tests to add/update: [list specific test file + test name or purpose]"
+2. **Implement and test in the same session** — write the code AND the tests together. Do not deliver code without tests.
+3. **Run the tests** before saying the task is done. If they fail, fix and re-run.
+
+Example: "Tests to add: test_api_validator.py — test_leaderboard_respects_limit; test_visual.py — test_validator_auto_loads."
+
+If you deliver implementation without corresponding tests, the task is incomplete. No exceptions.
+
+## 0b. RUN TESTS IN THE SAME TURN (no excuses)
+
+**If you edited code and did not run pytest before ending your response: you failed.**
+
+- **After any edit**: run `pytest tests/ -v` (or scope appropriately)
+- **After API/backend changes**: run `pytest tests/test_api_*.py tests/test_e2e_flows.py tests/test_regression.py -v`
+- **After UI/static changes** (e.g. `static/*.html`, `tests/ui/*`): run `pytest tests/ -v` (includes Playwright)
+- **If the change touches a specific domain**: run that domain's tests + regression, e.g. `pytest tests/test_api_validator.py tests/test_regression.py tests/ui/test_visual.py -v`
+- **Never** deliver edits without running tests in the same response
+- If tests fail: fix and re-run until green
+
+Visual verification = Playwright tests. Run them automatically; do not rely on manual browser checks.
+
+> **One-line reminder:** "Done" = code implemented + tests added/updated + pytest (including Playwright for UI) run to green — every time, in the same turn. No code change without a test run.
+
+> **Agent responsibility:** Do NOT tell the user to restart or test. You perform all restarts, config changes, API runs, and E2E/UI testing. Report "tests passed, everything working" only after you have done it and confirmed. Iterate until it works.
+
+## 1. API / Integration Tests (pytest)
+
+- Located in `tests/test_api_*.py`
+- One file per domain: `test_api_users.py`, `test_api_wallets.py`, `test_api_stake.py`, etc.
+- Test every new route, validation, and error case
+- Use `client` fixture (FastAPI TestClient), `admin_headers`, `user_alice_with_balance`, etc.
+- Verify request validation (correct + invalid payloads → 422)
+- Verify response shape matches Pydantic schemas in `app/schemas/`
+- Test auth (admin endpoints require `Authorization: Bearer {ADMIN_API_KEY}`)
+
+```python
+# Example: tests/test_api_wallets.py
+class TestSend:
+    def test_send_success(self, client, user_alice_with_balance, user_bob):
+        r = client.post("/v1/wallets/send", json={
+            "sender_id": "1001", "recipient_id": "1002", "amount": 50
+        })
+        assert r.status_code == 200
+        r_a = client.get("/v1/users/balance/1001")
+        assert r_a.json()["balance"] == 450.0
+
+    def test_send_insufficient_balance(self, client, user_alice, user_bob):
+        r = client.post("/v1/wallets/send", json={
+            "sender_id": "1001", "recipient_id": "1002", "amount": 10
+        })
+        assert r.status_code == 400
+        assert "insufficient" in r.json()["detail"].lower()
+```
+
+## 2. E2E and Regression Tests
+
+- **E2E flows:** `tests/test_e2e_flows.py` — full user journeys (register → mint → send → balance)
+- **Regression:** `tests/test_regression.py` — smoke tests; run after every change
+- Add regression smoke for core features (users, wallets, stake, referrals)
+
+## 3. Visual / Playwright Tests (when UI is involved)
+
+- Located in `tests/ui/` — `test_visual.py`, `test_harness.html`
+- Test harness: standalone HTML that calls the API; Playwright drives it
+- Test actual flows: Health Check, Run Full Flow, verify green result / correct balance
+- Use `page.click()`, `page.fill()`, `page.locator()`, `page.wait_for_selector()`
+- Requires: `pip install playwright && playwright install chromium`
+
+```python
+# Example pattern in tests/ui/test_visual.py
+def test_full_flow_visual(self, page):
+    page.click("button:has-text('Run Full Flow')")
+    page.wait_for_selector("#output", state="visible", timeout=15000)
+    assert page.locator("#output.ok").count() == 1
+    assert "150" in page.locator("#output").text_content()
+```
+
+## 4. When to Add Tests
+
+- **New API route** → add tests in `test_api_<domain>.py` (happy path + 400/404/422)
+- **New E2E flow** → add to `test_e2e_flows.py`
+- **Core change** → add smoke to `test_regression.py`
+- **Harness/UI change** → update `test_harness.html` and `test_visual.py`
+- **Bug fix** → add regression test proving the fix
+
+## 5. Running Tests — MANDATORY
+
+After writing or updating tests, you MUST run them and verify they pass.
+
+```bash
+# API + E2E + regression (default)
+pytest tests/ -v
+
+# Exclude UI if Playwright not installed
+pytest tests/ -v --ignore=tests/ui
+
+# With coverage
+pytest tests/ -v --cov=app --cov-report=html
+
+# Visual tests (starts server automatically)
+pytest tests/ui/ -v
+
+# Regression only (fast smoke)
+pytest tests/test_regression.py -v
+```
+
+- Run `pytest tests/` after any backend change
+- Run `pytest tests/ui/` after harness or UI-related changes
+- If tests fail: diagnose, fix, re-run until green — iterate until all pass
+- Report pass/fail to the user only after you have run them; never ask the user to run tests or restart services
+
+## 6. Key Conventions
+
+- API tests: `test_api_<domain>.py`, classes `Test*`, methods `test_*`
+- Fixtures: `conftest.py` (client, admin_headers, db_session, user_alice_with_balance)
+- E2E: `test_e2e_flows.py`
+- Regression: `test_regression.py`
+- See `docs/TESTING.md` and `docs/TEST_SCENARIOS.md` for full guidance
+
+## 7. Why Bugs Were Missed (Lessons Learned)
+
+Past failures (e.g. Top Holders limit selector destroyed after reload) happened because:
+
+1. **Tests asserted "data loaded" but not "controls still exist"** — A test that checks card text passes even if the dropdown was destroyed and replaced with a table. Always assert that interactive controls (select, button) persist after async reloads.
+2. **Tests didn't exercise the interaction flow** — Changing a dropdown then waiting for reload is different from "click Load All". Test the actual user flow: interact with the control, wait, then verify the control still works.
+3. **No structural integrity checks** — DOM replacement can break selectors. Test that key wrappers (e.g. `.card-content`) persist so subsequent loads target the right element.
+4. **Single-pass verification** — Running a test once that passes is not enough. Trace through: "What happens on the *second* load? The third?"
+5. **Trusting "tests passed"** — Tests can pass while the UI is broken if they don't assert the right things. Every UI test must answer: "Would a user be able to do this again?"
+
+**Mandatory for UI components with controls:** Test that (a) the control exists after reload, (b) changing the control multiple times works, (c) re-loading the section doesn't destroy the control.
+
+## 8. UI Component Test Requirements
+
+For components with dropdowns, toggles, or reload actions:
+
+- **Control persistence:** Assert `page.locator("#controlId").count() == 1` after the reload triggered by that control.
+- **Multi-interaction:** Change control, wait, change again, assert control still exists and shows correct value.
+- **Re-load:** Trigger reload (e.g. Load button), assert controls survive.
+- **Structure:** Assert `.card-content` or equivalent wrapper exists after content replacement.

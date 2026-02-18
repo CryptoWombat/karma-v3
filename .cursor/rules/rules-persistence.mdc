@@ -1,0 +1,29 @@
+---
+description: Load rules first every turn; add promises to rules so they persist across sessions
+alwaysApply: true
+---
+
+# Rules Persistence Rule
+
+**This rule takes priority. Follow it before any other action.**
+
+## 1. Load Rules First — Every Turn
+
+**Before responding to the user, before doing anything else** (including after context summarization, a new message, or session resume):
+
+1. **Read all files in `.cursor/rules/`** to load the current rules into context.
+2. **Then** proceed with the user's request.
+
+This ensures rules are 100% persistent: you always have them in context at the start of every turn, regardless of summarization or session boundaries.
+
+## 2. Add Promises to Rules
+
+When you make a **commitment or promise** to the user (e.g. "I'll always add tests", "I'll verify in the browser", "I won't delegate testing to you"):
+
+1. **Add that promise to the rules** — either by updating an existing rule in `.cursor/rules/` or creating a new one.
+2. **Write it as a concrete, actionable instruction** — not vague ("I'll try to...") but clear ("Do X").
+3. **Do this in the same turn** you make the promise — do not defer.
+
+Example: If you say "I'll include tests with every feature from now on", add to `testing-coverage.mdc`: "Every feature implementation must include corresponding tests in the same session. No exceptions."
+
+This makes promises persistent across sessions. Future agents (and future turns) will follow them.
